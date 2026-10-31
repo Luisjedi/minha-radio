@@ -1,6 +1,6 @@
-const CACHE = "radio-v1";
+const CACHE = "radio-v3";
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(["./", "./index.html", "./icon-192.png"])));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(["./", "./index.html", "./icon-192.png", "./logo-luis-fernando-fm.png"])));
   self.skipWaiting();
 });
 self.addEventListener("activate", e => e.waitUntil(clients.claim()));

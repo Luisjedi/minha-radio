@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Minha Rádio</title>
+<title>Luis Fernando FM</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1db954">
+<meta name="theme-color" content="#03050a">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-  :root { --bg:#fff; --fg:#1a1a1a; --card:#f2f2f4; --accent:#1db954; --muted:#777; }
+  :root { --bg:#fff; --fg:#1a1a1a; --card:#f2f2f4; --accent:#1f6fff; --muted:#777; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#121212; --fg:#f0f0f0; --card:#1e1e22; --muted:#999; }
   }
   * { box-sizing:border-box; }
   body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); padding-bottom:170px; }
   header { padding:16px; max-width:720px; margin:auto; }
-  h1 { margin:0 0 12px; font-size:1.4rem; }
+  h1 { margin:0 0 12px; font-size:0; }
+  h1 img { width:100%; max-width:480px; height:auto; display:block; }
   .abas { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .abas button { flex:1; padding:10px; border:0; border-radius:8px; background:var(--card); color:var(--fg); cursor:pointer; font-size:.95rem; }
   .abas button.ativa { background:var(--accent); color:#fff; }
@@ -44,7 +45,7 @@
 </head>
 <body>
 <header>
-  <h1>🎵 Minha Rádio</h1>
+  <h1><img src="logo-luis-fernando-fm.png" alt="Luis Fernando FM"></h1>
   <div class="abas">
     <button data-fonte="audius" class="ativa">Audius</button>
     <button data-fonte="jamendo">Jamendo</button>

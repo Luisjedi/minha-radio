@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Minha Rádio</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1db954">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root { --bg:#fff; --fg:#1a1a1a; --card:#f2f2f4; --accent:#1db954; --muted:#777; }
   @media (prefers-color-scheme: dark) {
@@ -200,6 +203,7 @@ document.querySelectorAll(".abas button").forEach(btn => {
   };
 });
 
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 $("#jamendoId").value = ler("jamendo_id");
 buscar();
 </script>

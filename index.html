@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minha Rádio</title>
+<style>
+  :root { --bg:#fff; --fg:#1a1a1a; --card:#f2f2f4; --accent:#1db954; --muted:#777; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#121212; --fg:#f0f0f0; --card:#1e1e22; --muted:#999; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); padding-bottom:170px; }
+  header { padding:16px; max-width:720px; margin:auto; }
+  h1 { margin:0 0 12px; font-size:1.4rem; }
+  .abas { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .abas button { flex:1; padding:10px; border:0; border-radius:8px; background:var(--card); color:var(--fg); cursor:pointer; font-size:.95rem; }
+  .abas button.ativa { background:var(--accent); color:#fff; }
+  .busca { display:flex; gap:8px; }
+  .busca input { flex:1; padding:10px; border-radius:8px; border:1px solid var(--muted); background:var(--card); color:var(--fg); font-size:1rem; }
+  .busca button { padding:10px 16px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  #jamendoKey { display:none; margin-top:8px; font-size:.85rem; color:var(--muted); }
+  #jamendoKey input { width:100%; padding:8px; margin-top:4px; border-radius:6px; border:1px solid var(--muted); background:var(--card); color:var(--fg); }
+  #status { max-width:720px; margin:0 auto; padding:0 16px; color:var(--muted); font-size:.9rem; min-height:1.2em; }
+  ul { list-style:none; margin:8px auto; padding:0 16px; max-width:720px; }
+  li { display:flex; align-items:center; gap:12px; padding:8px; border-radius:8px; cursor:pointer; }
+  li:hover, li.tocando { background:var(--card); }
+  li.tocando .t { color:var(--accent); }
+  li img { width:48px; height:48px; border-radius:6px; object-fit:cover; background:var(--card); flex:none; }
+  .t { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .a { color:var(--muted); font-size:.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .info { min-width:0; }
+  footer { position:fixed; bottom:0; left:0; right:0; background:var(--card); padding:12px 16px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid rgba(128,128,128,.3); }
+  .player { max-width:720px; margin:auto; }
+  .agora { display:flex; gap:12px; align-items:center; margin-bottom:8px; }
+  .agora img { width:56px; height:56px; border-radius:8px; object-fit:cover; background:var(--bg); }
+  .controles { display:flex; gap:8px; margin-bottom:8px; }
+  .controles button { flex:1; padding:8px; border:0; border-radius:8px; background:var(--bg); color:var(--fg); font-size:1.1rem; cursor:pointer; }
+  audio { width:100%; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎵 Minha Rádio</h1>
+  <div class="abas">
+    <button data-fonte="audius" class="ativa">Audius</button>
+    <button data-fonte="jamendo">Jamendo</button>
+    <button data-fonte="archive">Internet Archive</button>
+  </div>
+  <div class="busca">
+    <input id="q" type="search" placeholder="Buscar música ou artista (vazio = em alta)">
+    <button id="buscar">Buscar</button>
+  </div>
+  <div id="jamendoKey">
+    Jamendo precisa de um Client ID gratuito (devportal.jamendo.com):
+    <input id="jamendoId" placeholder="Cole seu client_id aqui">
+  </div>
+</header>
+<div id="status"></div>
+<ul id="lista"></ul>
+
+<footer>
+  <div class="player">
+    <div class="agora">
+      <img id="capa" alt="">
+      <div class="info"><div class="t" id="titulo">Nada tocando</div><div class="a" id="artista"></div></div>
+    </div>
+    <div class="controles">
+      <button id="ant" aria-label="Anterior">⏮</button>
+      <button id="prox" aria-label="Próxima">⏭</button>
+    </div>
+    <audio id="audio" controls preload="none"></audio>
+  </div>
+</footer>
+
+<script>
+const APP = "minha-radio";
+const $ = s => document.querySelector(s);
+const audio = $("#audio"), lista = $("#lista"), status = $("#status");
+let fonte = "audius", fila = [], atual = -1;
+
+const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const ler = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+
+/* ---------- Fontes ---------- */
+async function buscarAudius(q) {
+  const base = "https://api.audius.co/v1/tracks/";
+  const url = q
+    ? `${base}search?query=${encodeURIComponent(q)}&app_name=${APP}`
+    : `${base}trending?app_name=${APP}`;
+  const j = await (await fetch(url)).json();
+  return j.data.filter(t => t.is_streamable !== false).map(t => ({
+    titulo: t.title,
+    artista: t.user.name,
+    capa: t.artwork && (t.artwork["150x150"] || t.artwork["480x480"]),
+    url: `${base}${t.id}/stream?app_name=${APP}`
+  }));
+}
+
+async function buscarJamendo(q) {
+  const id = $("#jamendoId").value.trim();
+  if (!id) throw new Error("Cole seu client_id do Jamendo acima.");
+  guardar("jamendo_id", id);
+  const p = new URLSearchParams({ client_id: id, format: "json", limit: 30, audioformat: "mp32" });
+  if (q) p.set("search", q); else p.set("order", "popularity_week");
+  const j = await (await fetch("https://api.jamendo.com/v3.0/tracks/?" + p)).json();
+  if (!j.results) throw new Error(j.headers?.error_message || "Erro no Jamendo.");
+  return j.results.map(t => ({
+    titulo: t.name, artista: t.artist_name, capa: t.image, url: t.audio
+  }));
+}
+
+async function buscarArchive(q) {
+  const termo = q || "music";
+  const p = new URLSearchParams({
+    q: `mediatype:audio AND collection:opensource_audio AND (${termo})`,
+    rows: 30, output: "json"
+  });
+  ["identifier", "title", "creator"].forEach(f => p.append("fl[]", f));
+  p.append("sort[]", "downloads desc");
+  const j = await (await fetch("https://archive.org/advancedsearch.php?" + p)).json();
+  return j.response.docs.map(d => ({
+    titulo: d.title || d.identifier,
+    artista: Array.isArray(d.creator) ? d.creator.join(", ") : (d.creator || "Internet Archive"),
+    capa: `https://archive.org/services/img/${d.identifier}`,
+    resolver: async () => {
+      const m = await (await fetch(`https://archive.org/metadata/${d.identifier}`)).json();
+      const f = (m.files || []).find(x => /\.mp3$/i.test(x.name));
+      if (!f) throw new Error("Sem MP3 neste item.");
+      return `https://archive.org/download/${d.identifier}/${encodeURIComponent(f.name)}`;
+    }
+  }));
+}
+
+const fontes = { audius: buscarAudius, jamendo: buscarJamendo, archive: buscarArchive };
+
+/* ---------- Interface ---------- */
+async function buscar() {
+  status.textContent = "Carregando…";
+  lista.innerHTML = "";
+  try {
+    fila = await fontes[fonte]($("#q").value.trim());
+    atual = -1;
+    status.textContent = fila.length ? `${fila.length} faixas` : "Nada encontrado.";
+    desenhar();
+  } catch (e) {
+    status.textContent = "Erro: " + e.message;
+  }
+}
+
+function desenhar() {
+  lista.innerHTML = "";
+  fila.forEach((t, i) => {
+    const li = document.createElement("li");
+    if (i === atual) li.className = "tocando";
+    const img = document.createElement("img");
+    img.src = t.capa || ""; img.alt = ""; img.loading = "lazy";
+    const info = document.createElement("div"); info.className = "info";
+    const a = document.createElement("div"); a.className = "t"; a.textContent = t.titulo;
+    const b = document.createElement("div"); b.className = "a"; b.textContent = t.artista;
+    info.append(a, b); li.append(img, info);
+    li.onclick = () => tocar(i);
+    lista.appendChild(li);
+  });
+}
+
+async function tocar(i) {
+  if (i < 0 || i >= fila.length) return;
+  atual = i;
+  const t = fila[i];
+  $("#titulo").textContent = t.titulo;
+  $("#artista").textContent = t.artista;
+  $("#capa").src = t.capa || "";
+  desenhar();
+  try {
+    if (!t.url && t.resolver) t.url = await t.resolver();
+    audio.src = t.url;
+    await audio.play();
+    status.textContent = "";
+  } catch (e) {
+    status.textContent = "Não deu para tocar essa faixa, pulando…";
+    setTimeout(() => tocar(i + 1), 1200);
+  }
+}
+
+audio.addEventListener("ended", () => tocar(atual + 1));
+audio.addEventListener("error", () => { if (audio.src) { status.textContent = "Falha ao carregar o áudio."; } });
+$("#prox").onclick = () => tocar(atual + 1);
+$("#ant").onclick = () => tocar(atual - 1);
+$("#buscar").onclick = buscar;
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") buscar(); });
+
+document.querySelectorAll(".abas button").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".abas button").forEach(b => b.classList.remove("ativa"));
+    btn.classList.add("ativa");
+    fonte = btn.dataset.fonte;
+    $("#jamendoKey").style.display = fonte === "jamendo" ? "block" : "none";
+    buscar();
+  };
+});
+
+$("#jamendoId").value = ler("jamendo_id");
+buscar();
+</script>
+</body>
+</html>
